@@ -1,0 +1,13 @@
+model DocumentEntity {
+  id             String  @id @default(uuid()) @db.Uuid
+  documentId     String  @map("document_id") @db.Uuid
+  entityId       String  @map("entity_id") @db.Uuid
+  mentionContext String? @map("mention_context")
+  pageRef        String? @map("page_ref")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entity   Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_entities")
+}

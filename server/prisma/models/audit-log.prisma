@@ -1,0 +1,19 @@
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventType   String   @map("event_type")
+  userId      String?  @map("user_id") @db.Uuid
+  caseId      String?  @map("case_id") @db.Uuid
+  description String
+  inputData   Json     @default("{}") @map("input_data")
+  result      String
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  occurredAt  DateTime @default(now()) @map("occurred_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([occurredAt])
+  @@map("audit_log")
+}

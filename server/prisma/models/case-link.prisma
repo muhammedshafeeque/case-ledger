@@ -1,0 +1,14 @@
+model CaseLink {
+  id         String @id @default(uuid()) @db.Uuid
+  fromCaseId String @map("from_case_id") @db.Uuid
+  toCaseId   String @map("to_case_id") @db.Uuid
+  linkType   String @map("link_type")
+  strength   Int    @default(50)
+  notes      String?
+
+  fromCase RtiCase @relation("LinkFrom", fields: [fromCaseId], references: [id], onDelete: Cascade)
+  toCase   RtiCase @relation("LinkTo", fields: [toCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([fromCaseId, toCaseId, linkType])
+  @@map("case_links")
+}

@@ -1,0 +1,37 @@
+enum DocumentType {
+  application
+  response
+  first_appeal
+  second_appeal
+  sic_order
+  court_order
+  audit_report
+  news
+  evidence
+  tip
+}
+
+model Document {
+  id           String       @id @default(uuid()) @db.Uuid
+  caseId       String       @map("case_id") @db.Uuid
+  docType      DocumentType @map("doc_type")
+  s3Key        String?      @unique @map("s3_key")
+  sha256Hash   String?      @map("sha256_hash") @db.Char(64)
+  fileSize     BigInt?      @map("file_size")
+  mimeType     String?      @map("mime_type")
+  uploadedById String?      @map("uploaded_by") @db.Uuid
+  uploadedAt   DateTime     @default(now()) @map("uploaded_at")
+  textContent  String?      @map("text_content")
+  notAnswered  String?      @map("not_answered")
+  language     String       @default("en")
+  isVerified   Boolean      @default(false) @map("is_verified")
+  metadata     Json         @default("{}")
+
+  case             RtiCase           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  facts            Fact[]
+  documentEntities DocumentEntity[]
+
+  @@index([caseId])
+  @@index([docType])
+  @@map("documents")
+}

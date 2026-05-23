@@ -1,0 +1,46 @@
+enum AlertType {
+  deadline_warning
+  deadline_overdue
+  contradiction
+  financial_discrepancy
+  missing_document
+  timeline_anomaly
+  high_corruption_score
+  invalid_exemption
+  penalty_accrual
+  entity_risk
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertStatus {
+  unreviewed
+  acknowledged
+  actioned
+  dismissed
+}
+
+model Alert {
+  id          String        @id @default(uuid()) @db.Uuid
+  caseId      String        @map("case_id") @db.Uuid
+  alertType   AlertType     @map("alert_type")
+  severity    AlertSeverity
+  title       String
+  description String
+  ruleId      String?       @map("rule_id")
+  formula     String?
+  sourceData  Json          @default("{}") @map("source_data")
+  status      AlertStatus   @default(unreviewed)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, status])
+  @@index([alertType])
+  @@map("alerts")
+}

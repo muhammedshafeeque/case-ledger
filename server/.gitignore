@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+reference/*.db
+reference/*.db-journal
+src/generated/
+.pglite/
+

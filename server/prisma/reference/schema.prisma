@@ -1,0 +1,71 @@
+generator referenceClient {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/reference-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../../reference/rti-reference.db"
+}
+
+model RtiActSection {
+  id                        Int     @id @default(autoincrement())
+  sectionId                 String  @unique @map("section_id")
+  sectionText               String  @map("section_text")
+  commonName                String? @map("common_name")
+  exemptionValidityConditions String? @map("exemption_validity_conditions")
+
+  @@map("rti_act_sections")
+}
+
+model ProcessTimeline {
+  id          Int     @id @default(autoincrement())
+  processType String  @map("process_type")
+  minDays     Int     @map("min_days")
+  maxDays     Int?    @map("max_days")
+  legalBasis  String? @map("legal_basis")
+  notes       String?
+
+  @@map("process_timelines")
+}
+
+model MandatoryDocument {
+  id          Int     @id @default(autoincrement())
+  responseType String @map("response_type")
+  docType     String  @map("doc_type")
+  isMandatory Boolean @map("is_mandatory")
+  legalBasis  String? @map("legal_basis")
+
+  @@map("mandatory_documents")
+}
+
+model UiTranslation {
+  id       Int    @id @default(autoincrement())
+  key      String @unique
+  english  String
+  malayalam String
+
+  @@map("ui_translations")
+}
+
+model LegalPrecedent {
+  id             Int    @id @default(autoincrement())
+  caseName       String @map("case_name")
+  citation       String
+  year           Int
+  relevanceTags  String @map("relevance_tags")
+  summary        String
+
+  @@map("legal_precedents")
+}
+
+model EvasionPattern {
+  id                  Int    @id @default(autoincrement())
+  patternId           String @unique @map("pattern_id")
+  description         String
+  sectionCited        String? @map("section_cited")
+  validityAssessment  String? @map("validity_assessment")
+  counterArguments    String? @map("counter_arguments")
+
+  @@map("evasion_patterns")
+}

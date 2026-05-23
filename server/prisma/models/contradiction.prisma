@@ -1,0 +1,45 @@
+enum ContradictionType {
+  numerical
+  temporal
+  statement
+  legal
+  financial
+}
+
+enum ContradictionSeverity {
+  minor
+  significant
+  direct
+  fraud_indicator
+}
+
+enum ReviewStatus {
+  unreviewed
+  confirmed
+  dismissed
+  published
+}
+
+model Contradiction {
+  id                String              @id @default(uuid()) @db.Uuid
+  factId1           String              @map("fact_id_1") @db.Uuid
+  factId2           String              @map("fact_id_2") @db.Uuid
+  caseId1           String              @map("case_id_1") @db.Uuid
+  caseId2           String              @map("case_id_2") @db.Uuid
+  contradictionType ContradictionType   @map("contradiction_type")
+  description       String
+  severity          ContradictionSeverity
+  confidence        Int                 @default(80)
+  status            ReviewStatus        @default(unreviewed)
+  detectedAt        DateTime            @default(now()) @map("detected_at")
+  reviewedById      String?             @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime?           @map("reviewed_at")
+  aiNarrative       String?             @map("ai_narrative")
+
+  case1 RtiCase @relation("Case1", fields: [caseId1], references: [id])
+  case2 RtiCase @relation("Case2", fields: [caseId2], references: [id])
+
+  @@index([caseId1])
+  @@index([status])
+  @@map("contradictions")
+}

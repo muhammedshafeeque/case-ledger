@@ -1,0 +1,15 @@
+model EntityRelationship {
+  id               String  @id @default(uuid()) @db.Uuid
+  fromEntityId     String  @map("from_entity_id") @db.Uuid
+  toEntityId       String  @map("to_entity_id") @db.Uuid
+  relationshipType String  @map("relationship_type")
+  caseId           String? @map("case_id") @db.Uuid
+  notes            String?
+
+  fromEntity Entity @relation("RelFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity   Entity @relation("RelTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("entity_relationships")
+}

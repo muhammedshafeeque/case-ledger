@@ -1,0 +1,62 @@
+enum CaseStatus {
+  draft
+  submitted
+  pending
+  partial_response
+  full_response
+  rejected
+  first_appeal_filed
+  first_appeal_pending
+  second_appeal_filed
+  sic_pending
+  sic_order_received
+  court_pending
+  closed_success
+  closed_failure
+  archived
+}
+
+enum CasePriority {
+  critical
+  high
+  medium
+  low
+}
+
+model RtiCase {
+  id              String       @id @default(uuid()) @db.Uuid
+  rtiId           String       @unique @map("rti_id")
+  title           String
+  department      String
+  pioOfficer      String?      @map("pio_officer")
+  status          CaseStatus   @default(draft)
+  priority        CasePriority @default(medium)
+  filedDate       DateTime     @map("filed_date") @db.Date
+  dueDate         DateTime     @map("due_date") @db.Date
+  responseDate    DateTime?    @map("response_date") @db.Date
+  tags            String[]
+  corruptionScore Int          @default(0) @map("corruption_score")
+  isPublic        Boolean      @default(false) @map("is_public")
+  isSensitive     Boolean      @default(false) @map("is_sensitive")
+  metadata        Json         @default("{}")
+  createdById     String       @map("created_by") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  createdBy    User          @relation("CaseCreator", fields: [createdById], references: [id])
+  documents    Document[]
+  facts        Fact[]
+  alerts       Alert[]
+  caseEntities CaseEntity[]
+  linksFrom    CaseLink[]    @relation("LinkFrom")
+  linksTo      CaseLink[]    @relation("LinkTo")
+  caseTags     CaseTag[]
+  accessList   CaseAccess[]
+  contradictions1 Contradiction[] @relation("Case1")
+  contradictions2 Contradiction[] @relation("Case2")
+  lookupLogs      LookupLog[]
+
+  @@index([status, priority, dueDate])
+  @@index([department])
+  @@map("rti_cases")
+}

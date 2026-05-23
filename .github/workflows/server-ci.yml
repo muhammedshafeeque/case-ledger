@@ -1,0 +1,60 @@
+name: Server CI
+on:
+  push:
+    paths: ["server/**", ".github/workflows/server-ci.yml"]
+  pull_request:
+    paths: ["server/**"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rtiwatch
+          POSTGRES_PASSWORD: rtiwatch_dev
+          POSTGRES_DB: rti_watch
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run db:generate
+        env:
+          DATABASE_URL: postgresql://rtiwatch:rtiwatch_dev@localhost:5432/rti_watch
+          REFERENCE_DATABASE_URL: file:./reference/rti-reference.db
+          JWT_SECRET: ci-test-secret-minimum-32-characters-long
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      - run: npm run lint
+        env:
+          DATABASE_URL: postgresql://rtiwatch:rtiwatch_dev@localhost:5432/rti_watch
+          REFERENCE_DATABASE_URL: file:./reference/rti-reference.db
+          JWT_SECRET: ci-test-secret-minimum-32-characters-long
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      - run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://rtiwatch:rtiwatch_dev@localhost:5432/rti_watch
+      - run: npm test
+        env:
+          DATABASE_URL: postgresql://rtiwatch:rtiwatch_dev@localhost:5432/rti_watch
+          REFERENCE_DATABASE_URL: file:./reference/rti-reference.db
+          JWT_SECRET: ci-test-secret-minimum-32-characters-long
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://rtiwatch:rtiwatch_dev@localhost:5432/rti_watch
+          REFERENCE_DATABASE_URL: file:./reference/rti-reference.db
+          JWT_SECRET: ci-test-secret-minimum-32-characters-long
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"

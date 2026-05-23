@@ -1,0 +1,11 @@
+model CaseAccess {
+  id     String @id @default(uuid()) @db.Uuid
+  caseId String @map("case_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  role   String @default("collaborator")
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@map("case_access")
+}

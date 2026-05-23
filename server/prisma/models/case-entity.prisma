@@ -1,0 +1,14 @@
+model CaseEntity {
+  id             String @id @default(uuid()) @db.Uuid
+  caseId         String @map("case_id") @db.Uuid
+  entityId       String @map("entity_id") @db.Uuid
+  role           String
+  relevanceScore Int    @default(50) @map("relevance_score")
+
+  case   RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  entity Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, entityId, role])
+  @@index([entityId])
+  @@map("case_entities")
+}

@@ -1,0 +1,812 @@
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum AlertType {
+  deadline_warning
+  deadline_overdue
+  contradiction
+  financial_discrepancy
+  missing_document
+  timeline_anomaly
+  high_corruption_score
+  invalid_exemption
+  penalty_accrual
+  entity_risk
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertStatus {
+  unreviewed
+  acknowledged
+  actioned
+  dismissed
+}
+
+model Alert {
+  id          String        @id @default(uuid()) @db.Uuid
+  caseId      String        @map("case_id") @db.Uuid
+  alertType   AlertType     @map("alert_type")
+  severity    AlertSeverity
+  title       String
+  description String
+  ruleId      String?       @map("rule_id")
+  formula     String?
+  sourceData  Json          @default("{}") @map("source_data")
+  status      AlertStatus   @default(unreviewed)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, status])
+  @@index([alertType])
+  @@map("alerts")
+}
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventType   String   @map("event_type")
+  userId      String?  @map("user_id") @db.Uuid
+  caseId      String?  @map("case_id") @db.Uuid
+  description String
+  inputData   Json     @default("{}") @map("input_data")
+  result      String
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  occurredAt  DateTime @default(now()) @map("occurred_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([occurredAt])
+  @@map("audit_log")
+}
+model CaseAccess {
+  id          String   @id @default(uuid()) @db.Uuid
+  caseId      String   @map("case_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  role        String   @default("collaborator")
+  permissions String[] @default(["view", "edit", "add_evidence", "export_full"])
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+  @@map("case_access")
+}
+model CaseEntity {
+  id             String @id @default(uuid()) @db.Uuid
+  caseId         String @map("case_id") @db.Uuid
+  entityId       String @map("entity_id") @db.Uuid
+  role           String
+  relevanceScore Int    @default(50) @map("relevance_score")
+
+  case   RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  entity Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, entityId, role])
+  @@index([entityId])
+  @@map("case_entities")
+}
+model CaseLink {
+  id         String @id @default(uuid()) @db.Uuid
+  fromCaseId String @map("from_case_id") @db.Uuid
+  toCaseId   String @map("to_case_id") @db.Uuid
+  linkType   String @map("link_type")
+  strength   Int    @default(50)
+  notes      String?
+
+  fromCase RtiCase @relation("LinkFrom", fields: [fromCaseId], references: [id], onDelete: Cascade)
+  toCase   RtiCase @relation("LinkTo", fields: [toCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([fromCaseId, toCaseId, linkType])
+  @@map("case_links")
+}
+enum ContradictionType {
+  numerical
+  temporal
+  statement
+  legal
+  financial
+}
+
+enum ContradictionSeverity {
+  minor
+  significant
+  direct
+  fraud_indicator
+}
+
+enum ReviewStatus {
+  unreviewed
+  confirmed
+  dismissed
+  published
+}
+
+model Contradiction {
+  id                String              @id @default(uuid()) @db.Uuid
+  factId1           String              @map("fact_id_1") @db.Uuid
+  factId2           String              @map("fact_id_2") @db.Uuid
+  caseId1           String              @map("case_id_1") @db.Uuid
+  caseId2           String              @map("case_id_2") @db.Uuid
+  contradictionType ContradictionType   @map("contradiction_type")
+  description       String
+  severity          ContradictionSeverity
+  confidence        Int                 @default(80)
+  status            ReviewStatus        @default(unreviewed)
+  detectedAt        DateTime            @default(now()) @map("detected_at")
+  reviewedById      String?             @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime?           @map("reviewed_at")
+  aiNarrative       String?             @map("ai_narrative")
+
+  case1 RtiCase @relation("Case1", fields: [caseId1], references: [id])
+  case2 RtiCase @relation("Case2", fields: [caseId2], references: [id])
+
+  @@index([caseId1])
+  @@index([status])
+  @@map("contradictions")
+}
+model DocumentEntity {
+  id             String  @id @default(uuid()) @db.Uuid
+  documentId     String  @map("document_id") @db.Uuid
+  entityId       String  @map("entity_id") @db.Uuid
+  mentionContext String? @map("mention_context")
+  pageRef        String? @map("page_ref")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  entity   Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_entities")
+}
+enum DocumentType {
+  application
+  response
+  first_appeal
+  second_appeal
+  sic_order
+  court_order
+  audit_report
+  news
+  evidence
+  tip
+}
+
+enum DocumentProcessingStatus {
+  pending
+  processing
+  done
+  failed
+  skipped
+}
+
+enum ExtractionStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+enum ExtractionSource {
+  pdf_text
+  paste
+  cloud_ocr
+  tesseract
+  manual
+}
+
+enum CustodyEventType {
+  received
+  hashed
+  stored
+  viewed
+  exported
+  verified
+  extracted
+  seized
+  transferred
+  sealed
+  released
+}
+
+enum MediaKind {
+  document
+  image
+  audio
+  video
+}
+
+enum DiaryEntryType {
+  patrol
+  interview
+  seizure
+  court
+  other
+}
+
+enum StoryBoardKind {
+  hypothesis
+  lead
+  dead_end
+  publishable
+}
+
+enum AppealLevel {
+  none
+  first
+  second
+  sic
+}
+
+enum ExportProfileType {
+  full
+  redacted
+  publishable
+}
+
+enum ForensicJobStatus {
+  pending
+  active
+  completed
+  failed
+}
+
+enum ForensicJobType {
+  extract_document
+  extract_metadata
+  transcribe_audio
+}
+
+enum AnnotationLabel {
+  redaction
+  key_quote
+  not_answered
+  comment
+}
+
+model Document {
+  id                String                   @id @default(uuid()) @db.Uuid
+  caseId            String                   @map("case_id") @db.Uuid
+  docType           DocumentType             @map("doc_type")
+  s3Key             String?                  @unique @map("s3_key")
+  sha256Hash        String?                  @map("sha256_hash") @db.Char(64)
+  fileSize          BigInt?                  @map("file_size")
+  mimeType          String?                  @map("mime_type")
+  originalFilename  String?                  @map("original_filename")
+  processingStatus  DocumentProcessingStatus @default(pending) @map("processing_status")
+  extractedAt       DateTime?                @map("extracted_at")
+  uploadedById        String?                  @map("uploaded_by") @db.Uuid
+  uploadedAt        DateTime                 @default(now()) @map("uploaded_at")
+  textContent       String?                  @map("text_content")
+  notAnswered       String?                  @map("not_answered")
+  language          String                   @default("en")
+  isVerified        Boolean                  @default(false) @map("is_verified")
+  metadata          Json                     @default("{}")
+  mediaKind         MediaKind                @default(document) @map("media_kind")
+  exhibitNumber     String?                  @map("exhibit_number")
+  batesStart        String?                  @map("bates_start")
+  batesEnd          String?                  @map("bates_end")
+  metadataExtracted Json                     @default("{}") @map("metadata_extracted")
+  legalHold         Boolean                  @default(false) @map("legal_hold")
+  retentionUntil    DateTime?                @map("retention_until") @db.Date
+  evidenceItem      EvidenceItem?
+
+  case             RtiCase                @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  facts            Fact[]
+  documentEntities DocumentEntity[]
+  extractions      DocumentExtraction[]
+  custodyEvents    ChainOfCustodyEvent[]
+  annotations      DocumentAnnotation[]
+  forensicJobs     ForensicJob[]
+
+  @@index([caseId])
+  @@index([docType])
+  @@index([processingStatus])
+  @@map("documents")
+}
+
+model DocumentExtraction {
+  id             String           @id @default(uuid()) @db.Uuid
+  documentId     String           @map("document_id") @db.Uuid
+  status         ExtractionStatus @default(pending)
+  source         ExtractionSource?
+  extractedText  String?          @map("extracted_text")
+  pageCount      Int?             @map("page_count")
+  language       String?
+  error          String?
+  completedAt    DateTime?        @map("completed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
+  @@map("document_extractions")
+}
+
+model ChainOfCustodyEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  documentId String           @map("document_id") @db.Uuid
+  caseId     String           @map("case_id") @db.Uuid
+  eventType  CustodyEventType @map("event_type")
+  actorId    String?          @map("actor_id") @db.Uuid
+  payload    Json             @default("{}")
+  occurredAt DateTime         @default(now()) @map("occurred_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  case     RtiCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor    User?    @relation("CustodyActor", fields: [actorId], references: [id])
+
+  @@index([documentId, occurredAt])
+  @@index([caseId, occurredAt])
+  @@map("chain_of_custody_events")
+}
+
+model ForensicJob {
+  id          String            @id @default(uuid()) @db.Uuid
+  caseId      String            @map("case_id") @db.Uuid
+  documentId  String?           @map("document_id") @db.Uuid
+  jobType     ForensicJobType   @map("job_type")
+  status      ForensicJobStatus @default(pending)
+  bullmqJobId String?           @map("bullmq_job_id")
+  result      Json              @default("{}")
+  error       String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  completedAt DateTime?         @map("completed_at")
+
+  case     RtiCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, status])
+  @@index([documentId])
+  @@map("forensic_jobs")
+}
+
+model DocumentAnnotation {
+  id          String          @id @default(uuid()) @db.Uuid
+  documentId  String          @map("document_id") @db.Uuid
+  page        Int?
+  startOffset Int?            @map("start_offset")
+  endOffset   Int?            @map("end_offset")
+  quote       String
+  label       AnnotationLabel
+  createdById String          @map("created_by") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  document  Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("AnnotationAuthor", fields: [createdById], references: [id])
+
+  @@index([documentId])
+  @@map("document_annotations")
+}
+
+model CaseDiaryEntry {
+  id           String         @id @default(uuid()) @db.Uuid
+  caseId       String         @map("case_id") @db.Uuid
+  entryAt      DateTime       @map("entry_at")
+  entryType    DiaryEntryType @map("entry_type")
+  summary      String
+  location     String?
+  latitude     Float?
+  longitude    Float?
+  officerIds   String[]       @default([]) @map("officer_ids")
+  isPrivileged Boolean        @default(false) @map("is_privileged")
+  createdById  String         @map("created_by") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  case      RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("DiaryAuthor", fields: [createdById], references: [id])
+
+  @@index([caseId, entryAt])
+  @@map("case_diary_entries")
+}
+
+model InterviewRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  caseId         String   @map("case_id") @db.Uuid
+  personEntityId String   @map("person_entity_id") @db.Uuid
+  conductedAt    DateTime @map("conducted_at")
+  location       String?
+  officers       String[] @default([])
+  summary        String
+  documentId     String?  @map("document_id") @db.Uuid
+  isSealed       Boolean  @default(false) @map("is_sealed")
+  createdById    String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  case   RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  person Entity  @relation(fields: [personEntityId], references: [id])
+  createdBy User @relation("InterviewAuthor", fields: [createdById], references: [id])
+
+  @@index([caseId])
+  @@map("interview_records")
+}
+
+model ProtectedSource {
+  id              String   @id @default(uuid()) @db.Uuid
+  caseId          String   @map("case_id") @db.Uuid
+  codename        String
+  realIdentityEnc String   @map("real_identity_enc")
+  contactMethod   String?  @map("contact_method")
+  notesEnc        String?  @map("notes_enc")
+  createdById     String   @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  case      RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("SourceAuthor", fields: [createdById], references: [id])
+
+  @@index([caseId])
+  @@map("protected_sources")
+}
+
+model StoryBoardItem {
+  id        String         @id @default(uuid()) @db.Uuid
+  caseId    String         @map("case_id") @db.Uuid
+  kind      StoryBoardKind
+  title     String
+  body      String
+  sortOrder Int            @default(0) @map("sort_order")
+  status    String         @default("open")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, sortOrder])
+  @@map("story_board_items")
+}
+
+model EvidenceItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  caseId      String   @map("case_id") @db.Uuid
+  itemNumber  String   @map("item_number")
+  description String
+  seizedAt    DateTime @map("seized_at")
+  seizedById  String?  @map("seized_by") @db.Uuid
+  location    String?
+  documentId  String?  @unique @map("document_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  case     RtiCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id])
+  seizedBy User?     @relation("SeizedBy", fields: [seizedById], references: [id])
+
+  @@index([caseId])
+  @@map("evidence_items")
+}
+
+enum EntityType {
+  person
+  govt_org
+  company
+  dept
+  contractor
+}
+
+model Entity {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  nameMl          String?    @map("name_ml")
+  type            EntityType
+  riskScore       Int        @default(0) @map("risk_score")
+  designation     String?
+  parentOrgId     String?    @map("parent_org") @db.Uuid
+  externalIds     Json       @default("{}") @map("external_ids")
+  verified        Boolean    @default(false)
+  connectionCount Int        @default(0) @map("connection_count")
+  metadata        Json       @default("{}")
+  aliases         String[]   @default([])
+  dateOfBirth     DateTime?  @map("date_of_birth") @db.Date
+  phones          String[]   @default([])
+  addresses       String[]   @default([])
+  idNumbers       Json       @default("{}") @map("id_numbers")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  parentOrg       Entity?              @relation("OrgHierarchy", fields: [parentOrgId], references: [id])
+  interviews      InterviewRecord[]
+  children        Entity[]             @relation("OrgHierarchy")
+  caseEntities    CaseEntity[]
+  documentEntities DocumentEntity[]
+  relationshipsFrom EntityRelationship[] @relation("RelFrom")
+  relationshipsTo   EntityRelationship[] @relation("RelTo")
+  facts           Fact[]
+
+  @@index([name])
+  @@index([type, riskScore])
+  @@map("entities")
+}
+model EntityRelationship {
+  id               String  @id @default(uuid()) @db.Uuid
+  fromEntityId     String  @map("from_entity_id") @db.Uuid
+  toEntityId       String  @map("to_entity_id") @db.Uuid
+  relationshipType String  @map("relationship_type")
+  caseId           String? @map("case_id") @db.Uuid
+  notes            String?
+
+  fromEntity Entity @relation("RelFrom", fields: [fromEntityId], references: [id], onDelete: Cascade)
+  toEntity   Entity @relation("RelTo", fields: [toEntityId], references: [id], onDelete: Cascade)
+
+  @@index([fromEntityId])
+  @@index([toEntityId])
+  @@map("entity_relationships")
+}
+enum FactType {
+  financial_amount
+  date
+  official_statement
+  entity_mention
+  legal_section
+  process_event
+  contractor_name
+  project_detail
+}
+
+enum FactConfidence {
+  confirmed
+  uncertain
+  inferred
+}
+
+model Fact {
+  id            String         @id @default(uuid()) @db.Uuid
+  documentId    String         @map("document_id") @db.Uuid
+  caseId        String         @map("case_id") @db.Uuid
+  factType      FactType       @map("fact_type")
+  content       String
+  amount        Decimal?       @db.Decimal(18, 2)
+  amountCurrency String        @default("INR") @map("amount_currency")
+  amountCategory String?        @map("amount_category")
+  factDate      DateTime?      @map("fact_date") @db.Date
+  entityRefId   String?        @map("entity_ref") @db.Uuid
+  legalSection  String?        @map("legal_section")
+  confidence    FactConfidence @default(confirmed)
+  enteredById   String?        @map("entered_by") @db.Uuid
+  enteredAt     DateTime       @default(now()) @map("entered_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  case     RtiCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  entity   Entity?  @relation(fields: [entityRefId], references: [id])
+
+  @@index([caseId, factType])
+  @@index([documentId])
+  @@map("facts")
+}
+model LookupLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  caseId        String?  @map("case_id") @db.Uuid
+  source        String
+  url           String
+  query         Json     @default("{}")
+  dataRetrieved Json?    @map("data_retrieved")
+  decision      String   @default("pending_review")
+  fetchMode     String?  @map("fetch_mode")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  case RtiCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([caseId])
+  @@map("lookup_logs")
+}
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+enum CaseStatus {
+  draft
+  submitted
+  pending
+  partial_response
+  full_response
+  rejected
+  first_appeal_filed
+  first_appeal_pending
+  second_appeal_filed
+  sic_pending
+  sic_order_received
+  court_pending
+  closed_success
+  closed_failure
+  archived
+}
+
+enum CasePriority {
+  critical
+  high
+  medium
+  low
+}
+
+enum InvestigationType {
+  rti
+  audit
+  procurement
+  whistleblower
+  general
+  criminal
+  missing_persons
+  financial_crime
+  cyber
+  internal_affairs
+}
+
+enum TaskStatus {
+  open
+  in_progress
+  done
+  cancelled
+}
+
+model CaseNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  caseId    String   @map("case_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String
+  isPinned  Boolean  @default(false) @map("is_pinned")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  case   RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  author User    @relation("NoteAuthor", fields: [authorId], references: [id])
+
+  @@index([caseId, createdAt])
+  @@map("case_notes")
+}
+
+model Task {
+  id           String       @id @default(uuid()) @db.Uuid
+  caseId       String?      @map("case_id") @db.Uuid
+  title        String
+  description  String?
+  status       TaskStatus   @default(open)
+  priority     CasePriority @default(medium)
+  dueDate      DateTime?    @map("due_date") @db.Date
+  assignedToId String?      @map("assigned_to") @db.Uuid
+  createdById  String       @map("created_by") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  case       RtiCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  assignedTo User?    @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdBy  User     @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@index([caseId, status])
+  @@index([assignedToId, status])
+  @@map("tasks")
+}
+
+model RtiCase {
+  id              String       @id @default(uuid()) @db.Uuid
+  rtiId           String       @unique @map("rti_id")
+  investigationType InvestigationType @default(rti) @map("investigation_type")
+  title           String
+  department      String
+  pioOfficer      String?      @map("pio_officer")
+  status          CaseStatus   @default(draft)
+  priority        CasePriority @default(medium)
+  filedDate       DateTime     @map("filed_date") @db.Date
+  dueDate         DateTime     @map("due_date") @db.Date
+  responseDate    DateTime?    @map("response_date") @db.Date
+  tags            String[]
+  corruptionScore Int          @default(0) @map("corruption_score")
+  isPublic        Boolean      @default(false) @map("is_public")
+  isSensitive     Boolean      @default(false) @map("is_sensitive")
+  metadata        Json         @default("{}")
+  createdById     String       @map("created_by") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  createdBy    User          @relation("CaseCreator", fields: [createdById], references: [id])
+  documents    Document[]
+  facts        Fact[]
+  alerts       Alert[]
+  caseEntities CaseEntity[]
+  linksFrom    CaseLink[]    @relation("LinkFrom")
+  linksTo      CaseLink[]    @relation("LinkTo")
+  caseTags     CaseTag[]
+  accessList   CaseAccess[]
+  contradictions1 Contradiction[] @relation("Case1")
+  contradictions2 Contradiction[] @relation("Case2")
+  lookupLogs      LookupLog[]
+  notes           CaseNote[]
+  tasks           Task[]
+  custodyEvents   ChainOfCustodyEvent[]
+  forensicJobs    ForensicJob[]
+  diaryEntries    CaseDiaryEntry[]
+  protectedSources ProtectedSource[]
+  storyItems      StoryBoardItem[]
+  evidenceItems   EvidenceItem[]
+  interviews      InterviewRecord[]
+  crimeNumber     String?      @map("crime_number")
+  firNumber       String?      @map("fir_number")
+  station         String?
+  courtCaseNumber String?      @map("court_case_number")
+  jurisdiction    String?
+  appealLevel     AppealLevel  @default(none) @map("appeal_level")
+  appealFiledAt   DateTime?    @map("appeal_filed_at") @db.Date
+  partialResponse Boolean      @default(false) @map("partial_response")
+  embargoUntil    DateTime?    @map("embargo_until")
+  legalReviewStatus String?    @map("legal_review_status")
+  publicationChecklist Json    @default("{}") @map("publication_checklist")
+  networkSnapshot Json?        @map("network_snapshot")
+
+  @@index([status, priority, dueDate])
+  @@index([department])
+  @@index([investigationType])
+  @@map("rti_cases")
+}
+model Tag {
+  id    String @id @default(uuid()) @db.Uuid
+  name  String @unique
+  caseTags CaseTag[]
+
+  @@map("tags")
+}
+
+model CaseTag {
+  caseId String @map("case_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  case RtiCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  tag  Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([caseId, tagId])
+  @@map("case_tags")
+}
+enum UserRole {
+  admin
+  investigator
+  analyst
+  legal
+  journalist
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         UserRole  @default(investigator)
+  totpSecret   String?   @map("totp_secret")
+  totpEnabled  Boolean   @default(false) @map("totp_enabled")
+  locale       String    @default("en")
+  workspaceMode String   @default("accountability") @map("workspace_mode")
+  preferences  Json      @default("{}")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  casesCreated  RtiCase[]      @relation("CaseCreator")
+  auditLogs     AuditLog[]
+  notesAuthored CaseNote[]     @relation("NoteAuthor")
+  tasksAssigned Task[]         @relation("TaskAssignee")
+  tasksCreated  Task[]         @relation("TaskCreator")
+  custodyActs   ChainOfCustodyEvent[] @relation("CustodyActor")
+  annotations   DocumentAnnotation[] @relation("AnnotationAuthor")
+  diaryEntries  CaseDiaryEntry[]     @relation("DiaryAuthor")
+  interviews    InterviewRecord[]    @relation("InterviewAuthor")
+  sources       ProtectedSource[]    @relation("SourceAuthor")
+  seizedItems   EvidenceItem[]       @relation("SeizedBy")
+
+  @@map("users")
+}

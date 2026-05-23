@@ -1,0 +1,34 @@
+enum EntityType {
+  person
+  govt_org
+  company
+  dept
+  contractor
+}
+
+model Entity {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  nameMl          String?    @map("name_ml")
+  type            EntityType
+  riskScore       Int        @default(0) @map("risk_score")
+  designation     String?
+  parentOrgId     String?    @map("parent_org") @db.Uuid
+  externalIds     Json       @default("{}") @map("external_ids")
+  verified        Boolean    @default(false)
+  connectionCount Int        @default(0) @map("connection_count")
+  metadata        Json       @default("{}")
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  parentOrg       Entity?              @relation("OrgHierarchy", fields: [parentOrgId], references: [id])
+  children        Entity[]             @relation("OrgHierarchy")
+  caseEntities    CaseEntity[]
+  documentEntities DocumentEntity[]
+  relationshipsFrom EntityRelationship[] @relation("RelFrom")
+  relationshipsTo   EntityRelationship[] @relation("RelTo")
+  facts           Fact[]
+
+  @@index([name])
+  @@index([type, riskScore])
+  @@map("entities")
+}

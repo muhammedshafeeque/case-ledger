@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: RTI Watch API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      summary: Health check
+  /api/v1/auth/login:
+    post:
+      summary: Login
+  /api/v1/cases:
+    get:
+      summary: List cases
+    post:
+      summary: Create case
+  /api/v1/documents:
+    post:
+      summary: Commit document knowledge
+  /api/v1/alerts:
+    get:
+      summary: List alerts
+  /api/v1/ai/chat:
+    post:
+      summary: AI chat (on-demand)

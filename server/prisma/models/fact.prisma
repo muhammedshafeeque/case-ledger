@@ -1,0 +1,41 @@
+enum FactType {
+  financial_amount
+  date
+  official_statement
+  entity_mention
+  legal_section
+  process_event
+  contractor_name
+  project_detail
+}
+
+enum FactConfidence {
+  confirmed
+  uncertain
+  inferred
+}
+
+model Fact {
+  id            String         @id @default(uuid()) @db.Uuid
+  documentId    String         @map("document_id") @db.Uuid
+  caseId        String         @map("case_id") @db.Uuid
+  factType      FactType       @map("fact_type")
+  content       String
+  amount        Decimal?       @db.Decimal(18, 2)
+  amountCurrency String        @default("INR") @map("amount_currency")
+  amountCategory String?        @map("amount_category")
+  factDate      DateTime?      @map("fact_date") @db.Date
+  entityRefId   String?        @map("entity_ref") @db.Uuid
+  legalSection  String?        @map("legal_section")
+  confidence    FactConfidence @default(confirmed)
+  enteredById   String?        @map("entered_by") @db.Uuid
+  enteredAt     DateTime       @default(now()) @map("entered_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  case     RtiCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  entity   Entity?  @relation(fields: [entityRefId], references: [id])
+
+  @@index([caseId, factType])
+  @@index([documentId])
+  @@map("facts")
+}
