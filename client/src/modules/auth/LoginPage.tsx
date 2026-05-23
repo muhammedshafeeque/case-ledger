@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { apiPost } from "../../api/client";
+import { apiPost, setAccessToken } from "../../api/client";
+import { clearSession } from "../../lib/session";
 import { setAppLocale } from "../../i18n/loadTranslations";
 import { LocaleToggle } from "../../shared/LocaleToggle";
 import { Shield, Mail, Lock, KeyRound, LogIn } from "lucide-react";
@@ -28,7 +29,8 @@ export function LoginPage() {
         password,
         totpCode: totpCode || undefined,
       });
-      localStorage.setItem("accessToken", result.accessToken);
+      clearSession();
+      setAccessToken(result.accessToken);
       localStorage.setItem("user", JSON.stringify(result.user));
       if (result.user?.locale) await setAppLocale(result.user.locale);
       navigate("/");

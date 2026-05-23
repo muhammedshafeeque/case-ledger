@@ -27,7 +27,34 @@ npm install
 npm run dev
 ```
 
-## Production
+## Production (PM2, no Docker)
+
+On the VPS, **do not run `tsc` alone** — the reference Prisma client lives under `src/generated/` and must be copied into `dist/`.
+
+```bash
+cd ~/case-ledger/server
+cp .env.example .env   # edit DATABASE_URL, JWT_SECRET, REDIS_URL, S3_*, etc.
+npm ci --legacy-peer-deps
+npm run db:generate    # creates src/generated/reference-client + @prisma/client
+npm run db:migrate
+npm run db:seed
+npm run build          # db:generate + tsc + copy src/generated -> dist/generated
+ls dist/generated/reference-client/index.js   # must exist
+
+# API
+pm2 start dist/index.js --name case-ledger-api --cwd /home/ubuntu/case-ledger/server
+
+# Forensic worker (needs Redis)
+pm2 start dist/worker.js --name case-ledger-worker --cwd /home/ubuntu/case-ledger/server
+
+pm2 save
+```
+
+If you see `ERR_MODULE_NOT_FOUND` for `dist/generated/reference-client/index.js`, you skipped `npm run build` (or ran only `tsc`).
+
+Serve the client build separately (`cd client && npm run build`) via nginx static files.
+
+## Production (Docker)
 
 ```bash
 cd docker

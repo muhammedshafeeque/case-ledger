@@ -1,4 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { apiPost } from "../api/client";
+import { clearSession } from "../lib/session";
 import { useTranslation } from "react-i18next";
 import { LocaleToggle } from "./LocaleToggle";
 import {
@@ -31,8 +33,13 @@ export function Layout() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  function logout() {
-    localStorage.removeItem("accessToken");
+  async function logout() {
+    try {
+      await apiPost("/api/v1/auth/logout");
+    } catch {
+      /* session may already be expired */
+    }
+    clearSession();
     navigate("/login");
   }
 

@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { getAccessToken, isAccessTokenExpired } from "./lib/session";
 import { Layout } from "./shared/Layout";
 import { LoginPage } from "./modules/auth/LoginPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
@@ -13,8 +14,8 @@ import { TasksPage } from "./modules/tasks/TasksPage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem("accessToken");
-  if (!token) return <Navigate to="/login" replace />;
+  const token = getAccessToken();
+  if (!token || isAccessTokenExpired(token)) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 

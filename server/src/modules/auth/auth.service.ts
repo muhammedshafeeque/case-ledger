@@ -36,9 +36,19 @@ function hashRefreshToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function refreshTokenMaxAgeMs(): number {
+  const raw = getEnv().JWT_REFRESH_EXPIRY.trim();
+  const match = /^(\d+)([smhd])$/i.exec(raw);
+  if (!match) return 60 * 60 * 1000;
+  const n = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const mult = unit === "s" ? 1000 : unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000;
+  return n * mult;
+}
+
 export async function createRefreshToken(userId: string) {
   const raw = randomBytes(48).toString("hex");
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + refreshTokenMaxAgeMs());
   await refreshTokenRepository.create(userId, hashRefreshToken(raw), expiresAt);
   return raw;
 }
@@ -62,11 +72,9 @@ export async function login(input: LoginInput) {
   }
 
   const accessToken = await signAccessToken({ sub: user.id, email: user.email, role: user.role });
-  const refreshToken = await createRefreshToken(user.id);
 
   return {
     accessToken,
-    refreshToken,
     user: userRepository.toResponse(user),
   };
 }

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearSession, getAccessToken, isAccessTokenExpired, setAccessToken } from "../lib/session.js";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -7,11 +8,39 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+let redirectingToLogin = false;
+
+export function redirectToLogin() {
+  if (redirectingToLogin) return;
+  if (window.location.pathname === "/login") return;
+  redirectingToLogin = true;
+  clearSession();
+  window.location.href = "/login";
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = getAccessToken();
+  if (token) {
+    if (isAccessTokenExpired(token)) {
+      redirectToLogin();
+      return Promise.reject(new Error("Session expired"));
+    }
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const path = error.config?.url ?? "";
+    if (status === 401 && !path.includes("/auth/login")) {
+      redirectToLogin();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export type ApiEnvelope<T> = {
   success: boolean;
@@ -70,3 +99,5 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
     throw new Error(apiErrorMessage(err, "Upload failed"));
   }
 }
+
+export { setAccessToken, clearSession, getAccessToken, isAccessTokenExpired };

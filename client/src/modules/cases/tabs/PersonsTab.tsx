@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiPost, apiDelete } from "../../../api/client";
+import { apiGet, apiPost, apiDelete } from "../../../api/client";
 import { UserPlus, Users, Trash2 } from "lucide-react";
 import type { PersonRow } from "../types";
 

@@ -1,17 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import * as authService from "./auth.service.js";
 import { successResponse } from "../../shared/schemas/envelope.schema.js";
+import { AppError } from "../../shared/errors/app-error.js";
 import { writeAuditLog } from "../../lib/audit.js";
 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.login(req.body);
-    res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    res.clearCookie("refreshToken");
     await writeAuditLog({
       eventType: "login",
       userId: result.user.id,
@@ -29,7 +25,9 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 export async function refresh(req: Request, res: Response, next: NextFunction) {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
-    if (!token) return next();
+    if (!token) {
+      return next(AppError.unauthorized("Session expired — sign in again"));
+    }
     const result = await authService.refreshSession(token);
     res.json(successResponse(result));
   } catch (e) {
