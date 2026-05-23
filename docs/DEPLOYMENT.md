@@ -54,6 +54,21 @@ If you see `ERR_MODULE_NOT_FOUND` for `dist/generated/reference-client/index.js`
 
 Serve the client build separately (`cd client && npm run build`) via nginx static files.
 
+### PM2 troubleshooting
+
+| Error | Fix |
+|-------|-----|
+| `EACCES` on `node_modules/.prisma` during build | You ran `sudo npm` earlier. Run `sudo bash scripts/fix-npm-permissions.sh`, then **`npm run build` as ubuntu** (never `sudo npm`). |
+| `EADDRINUSE` port 5006 + **cluster mode** | Use `ecosystem.config.cjs` with `exec_mode: "fork"`. Then `pm2 delete all` (case-ledger only), `pm2 start ecosystem.config.cjs`. |
+| Port already in use | `ss -tlnp \| grep 5006` — stop the other process or change `PORT` in `.env`. |
+
+```bash
+pm2 delete case-ledger-api case-ledger-worker
+pm2 start ecosystem.config.cjs
+pm2 logs case-ledger-api
+curl -s http://127.0.0.1:5006/ready   # use your PORT from .env
+```
+
 ## Production (Docker)
 
 ```bash
